@@ -1,2 +1,2 @@
-# SQL
-SQL Portfolio 
+Amanda Mulhall's SQL Portfolio 
+Welcome
