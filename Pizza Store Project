@@ -1,0 +1,85 @@
+-- List food suppliers that the Pizza Store has not used yet 
+SELECT suppliername 
+FROM supplier 
+WHERE supplierID NOT IN(SELECT supplier_supplierID FROM ingredient_supplier);
+
+-- List the orders that have occurred in the last three months
+SELECT orderID, order_date AS days_since_ordered 
+FROM orders 
+WHERE datediff(current_date, order_date) <= 90; 
+
+-- List the recipe with the most ingredients
+SELECT recipeID, COUNT(ingredientID) AS NumberOfIngredients 
+FROM recipe 
+GROUP BY recipeID 
+ORDER BY COUNT(ingredientID) DESC; 
+
+-- List the ingredients that have been ordered from McClanahan’s
+SELECT name as IngredientName 
+FROM ingredients JOIN ingredient_supplier ON ingredients.ingredientID = ingredient_supplier.ingredientID JOIN supplier ON ingredient_supplier.supplierID = supplier.supplierID 
+WHERE suppliername = ‘McClanahan’s’; 
+
+-- List the customers who ordered Peppy Poppers and how many times they ordered this menu item
+SELECT customer.lname AS Customer, SUM(order_receipt.quantity) AS TimesOrdered
+FROM customer JOIN orders ON customer.customerID = orders.customerID JOIN order_receipt ON orders.orderID = order_receipt.orderID 
+JOIN menu_items ON order_receipt.itemID = menu_items.itemID 
+WHERE menu_items.name = ‘Peppy Poppers’ GROUP BY customerlname; 
+
+-- List the customer name, employee name, delivery driver’s name, order number, date, and time to deliver for the order that took the longest to deliver
+SELECT CONCAT(c.fname, ‘ ‘, c.lname) AS CustomerName, CONCAT(e.fname, ‘ ‘, e.lname) AS EmployeeName, 
+CONCAT(d.fname, ‘ ‘, d.lname) AS DeliveryDriverName, o.orderID, o.order_date, timediff(o.delivery_time, o.order_time) AS TimeToDeliver 
+FROM customer c JOIN orders o ON c.customerID = o.customerID JOIN employees e ON o.employeeID = e.employeeID LEFT JOIN delivery_driver d ON d.driverID = o.driverID 
+WHERE TIMEDIFF(o.delivery_time, o.order_time) = (SELECT MAX(timediff(o2.delivery_time, o2.order_time)) FROM orders o2); 
+
+-- List the menu item and number of ingredients needed with the cheapest order price
+SELECT menu_items.name AS MenuItem, COUNT(ingredients.ingredientID AS NumberOfIngredients, menu_items.price 
+FROM ingredients JOIN recipe ON ingredients.ingredientID = recipe.ingredients_ingredientID JOIN menu_items ON menu_items.itemID = recipe.menu_items_itemID 
+WHERE menu_items.price = (SELECT min(price) FROM menu_items) 
+ORDER BY menu_items.name; 
+	
+-- Find who placed the most recent order and where they live
+SELECT CONCAT(fname, ‘ ‘, lname) AS CustomerName, street, city, state 
+FROM customer JOIN orders ON customer.customerID = orders.customerID 
+WHERE orders.order_date = (SELECT MAX(order_date) FROM orders);
+
+-- List the menu item and cost for the item that has the highest cost of the below average costs
+SELECT name AS MenuItem, price 
+FROM menu_items 
+WHERE price = (SELECT MAX(price) FROM menu_items WHERE price < 
+(SELECT AVG(price) FROM menu_items));
+
+-- Find the delivery driver with the most deliveries
+SELECT CONCAT(delivery_driver.lname, ‘,’, delivery_driver.fname) AS DeliveryDriverName 
+FROM delivery_driver JOIN orders ON delivery_driver.driverid = orders.driverid 
+WHERE orders.driverid is NOT NULL 
+GROUP BY delivery_driver.lname, delivery_driver.fname, delivery_driver.driverid
+HAVING COUNT(orders.orderid) = (SELECT MAX(delivery_count) FROM 
+(SELECT driverid, COUNT(*) AS delivery_count FROM orders 
+WHERE driverid is NOT NULL 
+GROUP BY driverid) AS driver_counts);
+
+-- Find the most recent order and whether it was a delivery or pick up
+SELECT orderid, delivery_method 
+FROM orders 
+WHERE order_date = (SELECT MAX(order_date) FROM orders) 
+AND order_time = (SELECT MAX(order_time) FROM orders WHERE order_date = (SELECT MAX(order_date) FROM orders)); 
+	
+-- List the names and addresses of all customers, combining the information into a customer column and address column
+SELECT CONCAT(c.lname, ‘,’, c.fname) AS CustomerName, CONCAT(c.street, ‘,’, c.city, ‘,’, c.state) AS CustomerAddress 
+FROM customer c;
+
+-- List every menu item and if it has been ordered, the order dates
+SELECT name AS MenuItem, order_date 
+FROM menu_items LEFT JOIN order_receipt ON menu_items.itemid = order_receipt.itemid LEFT JOIN orders ON order_receipt.orderid = orders.orderid;
+
+-- List the customer’s names, driver’s names, employees’ names in two columns sorted by last name
+(SELECT fname as FirstName, lname AS LastName FROM customer) 
+UNION ALL (SELECT fname as FirstName, lname AS LastName FROM delivery_driver) 
+UNION ALL ( SELECT fname as FirstName, lname AS LastName FROM employees) 
+ORDER BY LastName;
+
+-- List the delivery drivers and the number of deliveries they have made, only including deliverers who have delivered at least 2 times
+SELECT fname AS DriverFirstName, lname AS DriverLastName, COUNT(orderID) AS NumberOfDeliveries 
+FROM delivery_driver JOIN orders ON delivery_driver.driverID = orders.driverID 
+GROUP BY fname, lname 
+HAVING COUNT(orderID) >= 2;
