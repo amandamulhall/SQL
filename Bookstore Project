@@ -1,0 +1,191 @@
+-- Finding publisher information: 
+
+-- Retrieve the name of all publishers located in New York
+SELECT publishername FROM publisher 
+WHERE city = ‘New York’;
+
+-- Count how many publishers are located in New York
+SELECT COUNT(*) 
+FROM publisher 
+WHERE city = ‘New York’;
+
+-- Show each publisher and the number of paperback books they have
+SELECT publishername, COUNT(bookcode) 
+FROM publisher JOIN book ON publisher.publishercode = book.publishercode
+WHERE paperback = ‘Y’ 
+GROUP BY publishername;
+
+-- Find the highest book price for each publisher 
+SELECT MAX(price), publishername 
+FROM book JOIN publisher ON book.publishercode = publisher.publishercode 
+GROUP BY publishername;
+
+-- Find the book and publisher for books published in Boston
+SELECT bookcode, title, publishername 
+FROM book JOIN publisher ON book.publishercode = publisher.publishercode 
+WHERE city = ‘Boston’;
+
+-- List each publisher and the number of books they have published, order from highest count to lowest count
+SELECT publishername, COUNT(bookcode) AS Number_Books_Published 
+FROM book JOIN publisher ON book.publishercode = publisher.publishercode 
+GROUP BY publishername 
+ORDER BY COUNT(bookcode) DESC;
+
+-- Retrieve the books that were published by a publisher named Plume
+SELECT title
+FROM book 
+WHERE publishercode IN(SELECT publishercode FROM publisher WHERE publishername = ‘Plume’);
+
+-- Retrieve a list of all publishers and branches, ensuring no duplicates and sorted alphabetically
+SELECT publishername AS Publisher_And_Branches 
+FROM publisher; 
+UNION 
+SELECT branchname 
+FROM branch 
+ORDER BY Publisher_And_Branches;
+
+-- List the publishers and their total number of books on hand in inventory for publishers whose total on-hand is at least 5
+SELECT publishername, SUM(onhand) 
+FROM publisher JOIN book ON publisher.publishercode = book.publishercode 
+JOIN inventory ON book.bookcode = inventory.bookcode 
+GROUP BY publishername 
+HAVING SUM(onhand) >=5;
+
+
+-- Finding book information: 
+
+-- Find the bookcode and title of all paperback horror books
+SELECT bookcode, title 
+FROM book
+WHERE type = ‘HOR’ and paperback = ‘y’; 
+
+-- Find the books and their bookcode for books in either Art, Fiction, or Mystery genre
+SELECT bookcode, title 
+FROM book 
+WHERE type IN (‘Art’, ‘FIC’, ‘MYS’); 
+SELECT bookcode, title 
+FROM book 
+WHERE type = ‘Art’ OR type = ‘FIC’ OR type = ‘MYS’;
+
+-- Count the total number of books in the Mystery genre
+SELECT COUNT(*) 
+FROM book 
+WHERE type = ‘MYS;
+
+-- Find the books that are not listed in the inventory 
+SELECT title 
+FROM book 
+WHERE bookcode NOT IN(SELECT bookcode FROM inventory); 
+
+-- List each book and whether it is paperback or hard cover 
+SELECT title, paperback, IF(paperback = ‘Y’, ‘Paperback’, ‘Hard Cover’) AS CoverType 
+FROM book;
+
+-- Find the cheapest horror book
+SELECT title 
+FROM book 
+WHERE price = (SELECT MIN(price) FROM book WHERE type = ‘HOR’) 
+AND type = ‘HOR’; 
+
+-- Find the book with the lowest price
+SELECT MIN(price) 
+FROM book;
+
+-- Find the books that are priced between $10 and $20
+SELECT bookcode, title, price 
+FROM book 
+WHERE price BETWEEN 10 and 20;
+
+-- Retrieve the book title and price for books that cost more than $15
+SELECT bookcode, title, price 
+FROM book 
+WHERE price > 15;
+
+-- Find the books in the mystery genre that are under $10
+SELECT bookcode, title 
+FROM book 
+WHERE type = ‘MYS’ AND price < 10;
+
+-- Select the books and price of the books when there is a 15% discount
+SELECT bookcode, title, ROUND(.85*price,2) AS Discounted_Price
+FROM book; 
+
+-- Retrieve all books that are priced higher than the average price of all books
+SELECT title 
+FROM book 
+WHERE price > (SELECT AVG(price) FROM book); 
+	
+-- Find the books that are priced lower than the cheapest mystery book
+SELECT bookcode, title 
+FROM book 
+WHERE price < (SELECT MIN(price) FROM book WHERE type = ‘MYS’); 
+
+-- Find the book and list its price of the most expensive book that is still priced below the average price of all books
+SELECT title, price 
+FROM book 
+WHERE price = (SELECT MAX(price) FROM book WHERE price < (SELECT AVG(price) FROM book)); 
+
+-- Retrieve each book’s title and price, categorizing each price by those under $10, those over $20, and those in between
+SELECT title, price, CASE when price < 10 then ‘Under $10’ 
+WHEN price < 20 then ‘Between $10 and $19.99’ 
+WHEN price >= 20 then ‘$20 and over’ 
+END AS PriceDescription 
+FROM book;
+
+
+-- Finding author information: 
+
+-- Retrieve the every author and the number of books they have written
+SELECT authorfirst, authorlast, COUNT(bookcode) 
+FROM author JOIN wrote ON author.authornum = wrote.authornum 
+GROUP BY authorfirst, authorlast;
+
+-- Find the author who wrote the highest priced book
+SELECT authorfirst, authorlast 
+FROM author JOIN wrote ON author.authornum = wrote.authornum JOIN book ON wrote.bookcode = book.bookcode 
+WHERE price = (SELECT MAX(price) FROM book);
+
+-- Find the authors whose first names start with “Tr”
+SELECT authorfirst, authorlast 
+FROM author 
+WHERE authorfirst LIKE’Tr%’; 
+
+-- Find pairs of authors who share the same first name, avoiding duplicates and self-pairings
+SELECT a1.authorfirst, a1.authorlast, a2.authorfirst, a2.authorlast 
+FROM author a1 JOIN author a2 ON a1.authorfirst = a2.authorfirst 
+WHERE a1.authornum < a2.authornum;
+
+-- List every author’s name and the average price of their fiction books
+SELECT authorfirst, authorlast, ROUND(AVG(price), 2) AS average_book_price
+FROM author INNER JOIN wrote ON author.authornum = wrote.authornum INNER JOIN book ON wrote.bookcode = book.bookcode 
+WHERE type = ‘FIC’ GROUP BY authorfirst, authorlast;
+
+-- First create a view to show each author’s number and how many of their books are currently in inventory. Once created, select the author name who has the highest number of books in inventory.
+CREATE VIEW authorcount (authornum, books_in_inventory) 
+AS SELECT authornum, COUNT(b.bookcode) FROM wrote w JOIN book b ON w.bookcode = b.bookcode JOIN inventory i ON b.bookcode = i.bookcode GROUP BY authornum; 
+SELECT authorfirst, authorlast 
+FROM author JOIN authorcount ON author.authornum = authorcount.authornum 
+WHERE book_in_inventory = (SELECT MAX(books_in_inventory) FROM authorcount);
+
+
+-- Finding branch & employee information: 
+
+-- Show total number of books on hand for each branch and book combination
+SELECT branchname, type, SUM(onhand) 
+FROM book b JOIN inventory i ON b.bookcode = i.bookcode JOIN branch br ON i.branchnum = br.branchnum 
+GROUP BY branchname, type;
+
+-- Find the books that are available at the Henry Downtown branch
+SELECT title 
+FROM book JOIN inventory ON book.bookcode = inventory.bookcode JOIN branch ON inventory.branchnum = branch.branchnum 
+WHERE branchname = ‘Henry Downtown’;
+
+-- Find the names of branches that have the ‘Magic Terror’ book in their inventory
+SELECT branchname 
+FROM branch JOIN inventory ON branch.branchnum = inventory.branchnum 
+JOIN book ON inventory.bookcode = book.bookcode 
+WHERE title = ‘Magic Terror’; 
+
+-- Find the total number of employees across all branches 
+SELECT SUM(NumEmployees) 
+FROM branch; 
